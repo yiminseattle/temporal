@@ -25,6 +25,8 @@
 package client
 
 import (
+	"fmt"
+	"gopkg.in/yaml.v2"
 	"sync"
 
 	"go.temporal.io/server/common/config"
@@ -87,7 +89,7 @@ type (
 	// AbstractDataStoreFactory creates a DataStoreFactory, can be used to implement custom datastore support outside
 	// of the Temporal core.
 	AbstractDataStoreFactory interface {
-		NewFactory(cfg config.CustomDatastoreConfig, clusterName string, logger log.Logger) DataStoreFactory
+		NewFactory(cfg config.CustomDatastoreConfig, r resolver.ServiceResolver, clusterName string, logger log.Logger) DataStoreFactory
 	}
 
 	// Datastore represents a datastore
@@ -107,6 +109,40 @@ type (
 
 	storeType int
 )
+
+type MultiCassFactoryProvider struct {
+}
+
+func NewMultiCassFactoryProvider() AbstractDataStoreFactory{
+	return &MultiCassFactoryProvider{}
+}
+
+type CassCfg struct {
+	Clusters []config.Cassandra `yaml:"clusters"`
+}
+
+
+func (f *MultiCassFactoryProvider) NewFactory(
+	cfg config.CustomDatastoreConfig,
+	r resolver.ServiceResolver,
+	clusterName string,
+	logger log.Logger,
+) DataStoreFactory {
+	fmt.Printf("Options count: %d\n", len(cfg.Options))
+	for k, v := range cfg.Options {
+		fmt.Printf("%v: %v\n", k, v)
+	}
+
+	cfgRaw := cfg.Options["rawConfig"]
+	var cassCfg CassCfg
+	err := yaml.Unmarshal([]byte(cfgRaw), &cassCfg)
+	fmt.Printf("err: %v, len: %d\n", err, len(cassCfg.Clusters))
+	for i, c := range cassCfg.Clusters {
+		fmt.Printf("cfg %d:\n%+v\n", i, c)
+	}
+
+	return cassandra.NewMultiCassFactory(cassCfg.Clusters, r, clusterName, logger)
+}
 
 const (
 	storeTypeHistory storeType = iota + 1
@@ -354,7 +390,7 @@ func (f *factoryImpl) init(
 	case defaultCfg.SQL != nil:
 		defaultDataStore.factory = sql.NewFactory(*defaultCfg.SQL, r, clusterName, f.logger)
 	case defaultCfg.CustomDataStoreConfig != nil:
-		defaultDataStore.factory = f.abstractDataStoreFactory.NewFactory(*defaultCfg.CustomDataStoreConfig, clusterName, f.logger)
+		defaultDataStore.factory = f.abstractDataStoreFactory.NewFactory(*defaultCfg.CustomDataStoreConfig, r, clusterName, f.logger)
 	default:
 		f.logger.Fatal("invalid config: one of cassandra or sql params must be specified for default data store")
 	}

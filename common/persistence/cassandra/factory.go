@@ -25,6 +25,7 @@
 package cassandra
 
 import (
+	"fmt"
 	"sync"
 
 	"go.temporal.io/server/common/config"
@@ -50,7 +51,111 @@ type (
 		session gocql.Session
 		logger  log.Logger
 	}
+
+	MultiCassFactory struct {
+		*Factory // primary factory
+		Factories []*Factory
+	}
 )
+
+func NewMultiCassFactory(
+	cfgs []config.Cassandra,
+	r resolver.ServiceResolver,
+	clusterName string,
+	logger log.Logger,
+) *MultiCassFactory {
+
+	var factories []*Factory
+	for _, cfg := range cfgs {
+		factories = append(factories, NewFactory(cfg, r, clusterName, logger))
+	}
+
+	multiCassFactory := &MultiCassFactory{
+		Factory: factories[0],
+		Factories: factories,
+	}
+
+	return multiCassFactory
+}
+
+//func (f *MultiCassFactory) Close() {
+//	f.Factory.Close()
+//}
+//func (f *MultiCassFactory) NewTaskStore() (p.TaskStore, error) {
+//	return f.Factory.NewTaskStore()
+//}
+
+type multiCassShardStore struct {
+	stores []p.ShardStore
+}
+
+func (f *MultiCassFactory) NewShardStore() (p.ShardStore, error) {
+	var stores []p.ShardStore
+	for _, factory := range f.Factories {
+		store, err := factory.NewShardStore()
+		if err != nil {
+			return nil, err
+		}
+		stores = append(stores, store)
+	}
+	return &multiCassShardStore{
+		stores: stores,
+	}, nil
+}
+
+func (s *multiCassShardStore) Close() {
+	for _, store := range s.stores {
+		store.Close()
+	}
+}
+
+func (s *multiCassShardStore) GetName() string {
+	return s.stores[0].GetName()
+}
+func (s *multiCassShardStore) GetClusterName() string {
+	return s.stores[0].GetClusterName()
+}
+
+func (s *multiCassShardStore) getStore(shardID int32) p.ShardStore {
+	idx := shardID % int32(len(s.stores))
+	return s.stores[idx]
+}
+
+func (s *multiCassShardStore) CreateShard(request *p.InternalCreateShardRequest) error {
+	return s.getStore(request.ShardID).CreateShard(request)
+}
+func (s *multiCassShardStore) GetShard(request *p.InternalGetShardRequest) (*p.InternalGetShardResponse, error) {
+	return s.getStore(request.ShardID).GetShard(request)
+}
+func (s *multiCassShardStore) UpdateShard(request *p.InternalUpdateShardRequest) error {
+	return s.getStore(request.ShardID).UpdateShard(request)
+}
+
+
+//func (f *MultiCassFactory) NewHistoryStore() (p.HistoryStore, error) {
+//	return f.Factory.NewHistoryStore()
+//}
+//func (f *MultiCassFactory) NewMetadataStore() (p.MetadataStore, error) {
+//	return f.Factory.NewMetadataStore()
+//}
+func (f *MultiCassFactory) NewExecutionStore(shardID int32) (p.ExecutionStore, error) {
+	idx := shardID % int32(len(f.Factories))
+	fmt.Printf("**** creating execution store for shardID: %d, using idx %d session.\n", shardID, idx)
+
+	factory := f.Factories[idx]
+	return factory.NewExecutionStore(shardID)
+}
+
+//func (f *MultiCassFactory) NewVisibilityStore() (p.VisibilityStore, error) {
+//	return f.Factory.NewVisibilityStore()
+//}
+//func (f *MultiCassFactory) NewQueue(queueType p.QueueType) (p.Queue, error) {
+//	return f.Factory.NewQueue(queueType)
+//}
+//func (f *MultiCassFactory) NewClusterMetadataStore() (p.ClusterMetadataStore, error) {
+//	return f.Factory.NewClusterMetadataStore()
+//}
+
 
 // NewFactory returns an instance of a factory object which can be used to create
 // datastores that are backed by cassandra

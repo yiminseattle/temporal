@@ -713,6 +713,7 @@ type (
 	cassandraStore struct {
 		session gocql.Session
 		logger  log.Logger
+		sessions []gocql.Session
 	}
 
 	// Implements ExecutionManager, ShardManager and TaskManager
@@ -722,6 +723,35 @@ type (
 		currentClusterName string
 	}
 )
+
+//func (d *cassandraStore) getSession(shardID int32) gocql.Session {
+//	idx := shardID % int32(len(d.sessions))
+//	return d.sessions[idx]
+//}
+
+//func (s *cassandraStore) getSession(keys ...interface{}) gocql.Session {
+//	if len(keys) == 1 {
+//		switch v := keys[0].(type) {
+//		case int32: // special case for shardID
+//			idx := v % int32(len(s.sessions))
+//			return s.sessions[idx]
+//		}
+//	}
+//
+//	strKeys := make([]string, len(keys), len(keys))
+//	for i, k := range keys {
+//		switch v := k.(type) {
+//		case string:
+//			strKeys[i] = v
+//		default:
+//			strKeys[i] = fmt.Sprintf("%v", v)
+//		}
+//	}
+//	compositKey := []byte(strings.Join(strKeys, "_"))
+//	hash := farm.Fingerprint32(compositKey)
+//	idx := hash % uint32(len(s.sessions))
+//	return s.sessions[idx]
+//}
 
 var _ p.ExecutionStore = (*cassandraPersistence)(nil)
 

@@ -26,6 +26,7 @@ package main
 
 import (
 	"fmt"
+	"go.temporal.io/server/common/persistence/client"
 	"log"
 	"os"
 	"path"
@@ -146,6 +147,7 @@ func buildCLI() *cli.App {
 					return cli.Exit(fmt.Sprintf("Unable to instantiate claim mapper: %v.", err), 1)
 				}
 				s := temporal.NewServer(
+					temporal.WithCustomDataStoreFactory(client.NewMultiCassFactoryProvider()),
 					temporal.ForServices(services),
 					temporal.WithConfig(cfg),
 					temporal.WithDynamicConfigClient(dynamicConfigClient),

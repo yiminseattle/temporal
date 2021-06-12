@@ -25,6 +25,7 @@
 package temporal
 
 import (
+	"go.temporal.io/server/common/persistence/client"
 	"net/http"
 
 	"go.temporal.io/server/common/authorization"
@@ -98,6 +99,12 @@ func WithTLSConfigFactory(tlsConfigProvider encryption.TLSConfigProvider) Server
 func WithClaimMapper(claimMapper func(cfg *config.Config) authorization.ClaimMapper) ServerOption {
 	return newApplyFuncContainer(func(s *serverOptions) {
 		s.claimMapper = claimMapper(s.config)
+	})
+}
+
+func WithCustomDataStoreFactory(customFactory client.AbstractDataStoreFactory) ServerOption {
+	return newApplyFuncContainer(func(s *serverOptions) {
+		s.customDataStoreFactory = customFactory
 	})
 }
 

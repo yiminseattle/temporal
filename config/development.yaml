@@ -4,9 +4,25 @@ persistence:
   numHistoryShards: 4
   datastores:
     cass-default:
-      cassandra:
-        hosts: "127.0.0.1"
-        keyspace: "temporal"
+#      cassandra:
+#        hosts: "127.0.0.1"
+#        keyspace: "temporal"
+      customDatastore:
+        name: multi-cass
+        options:
+          clusterCount: 2
+# rawConfig is multi-line string that will be passed by custom data store factory
+          rawConfig: |
+            clusters:
+              -
+                hosts: "127.0.0.1"
+                port: 9042
+                keyspace: "temporal"
+              -
+                hosts: "127.0.0.1"
+                port: 9043
+                keyspace: "temporal"
+
     cass-visibility:
       cassandra:
         hosts: "127.0.0.1"
