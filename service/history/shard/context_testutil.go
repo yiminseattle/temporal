@@ -62,13 +62,13 @@ func NewTestContext(
 		logger:           resource.GetLogger(),
 		throttledLogger:  resource.GetThrottledLogger(),
 
-		state:                     contextStateAcquired,
-		shardInfo:                 shardInfo,
-		transferSequenceNumber:    1,
-		transferMaxReadLevel:      0,
-		maxTransferSequenceNumber: 100000,
-		timerMaxReadLevelMap:      make(map[string]time.Time),
-		remoteClusterCurrentTime:  make(map[string]time.Time),
+		state:                    contextStateAcquired,
+		shardInfo:                shardInfo,
+		taskSequenceNumber:       1,
+		transferMaxReadLevel:     0,
+		maxTaskSequenceNumber:    100000,
+		timerMaxReadLevelMap:     make(map[string]time.Time),
+		remoteClusterCurrentTime: make(map[string]time.Time),
 	}
 	return &ContextTest{
 		ContextImpl:     shard,

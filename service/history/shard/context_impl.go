@@ -93,9 +93,9 @@ type (
 		engine                    Engine
 		lastUpdated               time.Time
 		shardInfo                 *persistence.ShardInfoWithFailover
-		transferSequenceNumber    int64
-		maxTransferSequenceNumber int64
-		transferMaxReadLevel      int64
+		taskSequenceNumber    int64
+		maxTaskSequenceNumber int64
+		transferMaxReadLevel  int64
 		timerMaxReadLevelMap      map[string]time.Time // cluster -> timerMaxReadLevel
 
 		// exist only in memory
@@ -153,7 +153,7 @@ func (s *ContextImpl) GenerateTransferTaskID() (int64, error) {
 	s.wLock()
 	defer s.wUnlock()
 
-	return s.generateTransferTaskIDLocked()
+	return s.generateTaskIDLocked()
 }
 
 func (s *ContextImpl) GenerateTransferTaskIDs(number int) ([]int64, error) {
@@ -162,7 +162,7 @@ func (s *ContextImpl) GenerateTransferTaskIDs(number int) ([]int64, error) {
 
 	result := []int64{}
 	for i := 0; i < number; i++ {
-		id, err := s.generateTransferTaskIDLocked()
+		id, err := s.generateTaskIDLocked()
 		if err != nil {
 			return nil, err
 		}
@@ -603,9 +603,9 @@ func (s *ContextImpl) ConflictResolveWorkflowExecution(
 
 func (s *ContextImpl) AddTasks(
 	request *persistence.AddTasksRequest,
-) error {
+) (int64, error) {
 	if err := s.errorByState(); err != nil {
-		return err
+		return 0, err
 	}
 
 	namespaceID := namespace.ID(request.NamespaceID)
@@ -614,7 +614,7 @@ func (s *ContextImpl) AddTasks(
 	// do not try to get namespace cache within shard lock
 	namespaceEntry, err := s.GetNamespaceRegistry().GetNamespaceByID(namespaceID)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	s.wLock()
@@ -630,20 +630,20 @@ func (s *ContextImpl) AddTasks(
 		request.VisibilityTasks,
 		&transferMaxReadLevel,
 	); err != nil {
-		return err
+		return 0, err
 	}
 	defer s.updateMaxReadLevelLocked(transferMaxReadLevel)
 
 	request.RangeID = s.getRangeIDLocked()
 	err = s.executionManager.AddTasks(request)
 	if err = s.handleErrorLocked(err); err != nil {
-		return err
+		return 0, err
 	}
 	s.engine.NotifyNewTransferTasks(request.TransferTasks)
 	s.engine.NotifyNewTimerTasks(request.TimerTasks)
 	s.engine.NotifyNewVisibilityTasks(request.VisibilityTasks)
 	s.engine.NotifyNewReplicationTasks(request.ReplicationTasks)
-	return nil
+	return transferMaxReadLevel, nil
 }
 
 func (s *ContextImpl) AppendHistoryEvents(
@@ -726,19 +726,19 @@ func (s *ContextImpl) errorByStateLocked() error {
 	}
 }
 
-func (s *ContextImpl) generateTransferTaskIDLocked() (int64, error) {
+func (s *ContextImpl) generateTaskIDLocked() (int64, error) {
 	if err := s.updateRangeIfNeededLocked(); err != nil {
 		return -1, err
 	}
 
-	taskID := s.transferSequenceNumber
-	s.transferSequenceNumber++
+	taskID := s.taskSequenceNumber
+	s.taskSequenceNumber++
 
 	return taskID, nil
 }
 
 func (s *ContextImpl) updateRangeIfNeededLocked() error {
-	if s.transferSequenceNumber < s.maxTransferSequenceNumber {
+	if s.taskSequenceNumber < s.maxTaskSequenceNumber {
 		return nil
 	}
 
@@ -770,13 +770,13 @@ func (s *ContextImpl) renewRangeLocked(isStealing bool) error {
 	s.logger.Info("Range updated for shardID",
 		tag.ShardRangeID(updatedShardInfo.RangeId),
 		tag.PreviousShardRangeID(s.shardInfo.RangeId),
-		tag.Number(s.transferSequenceNumber),
-		tag.NextNumber(s.maxTransferSequenceNumber),
+		tag.Number(s.taskSequenceNumber),
+		tag.NextNumber(s.maxTaskSequenceNumber),
 	)
 
-	s.transferSequenceNumber = updatedShardInfo.GetRangeId() << s.config.RangeSizeBits
-	s.maxTransferSequenceNumber = (updatedShardInfo.GetRangeId() + 1) << s.config.RangeSizeBits
-	s.transferMaxReadLevel = s.transferSequenceNumber - 1
+	s.taskSequenceNumber = updatedShardInfo.GetRangeId() << s.config.RangeSizeBits
+	s.maxTaskSequenceNumber = (updatedShardInfo.GetRangeId() + 1) << s.config.RangeSizeBits
+	s.transferMaxReadLevel = s.taskSequenceNumber - 1
 	s.shardInfo = updatedShardInfo
 
 	return nil
@@ -910,7 +910,7 @@ func (s *ContextImpl) allocateTransferIDsLocked(
 ) error {
 
 	for _, task := range tasks {
-		id, err := s.generateTransferTaskIDLocked()
+		id, err := s.generateTaskIDLocked()
 		if err != nil {
 			return err
 		}
@@ -953,7 +953,7 @@ func (s *ContextImpl) allocateTimerIDsLocked(
 			task.SetVisibilityTime(s.timerMaxReadLevelMap[currentCluster].Add(time.Millisecond))
 		}
 
-		seqNum, err := s.generateTransferTaskIDLocked()
+		seqNum, err := s.generateTaskIDLocked()
 		if err != nil {
 			return err
 		}

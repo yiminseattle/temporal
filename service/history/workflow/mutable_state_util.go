@@ -36,6 +36,7 @@ import (
 // since this will assume initial length being len(inputs)
 // always use make(type, 0, len(input))
 func convertSyncActivityInfos(
+	now time.Time,
 	workflowKey definition.WorkflowKey,
 	activityInfos map[int64]*persistencespb.ActivityInfo,
 	inputs map[int64]struct{},
@@ -48,6 +49,7 @@ func convertSyncActivityInfos(
 				WorkflowKey: workflowKey,
 				Version:     activityInfo.Version,
 				ScheduledID: activityInfo.ScheduleId,
+				VisibilityTimestamp: now,
 			})
 		}
 	}

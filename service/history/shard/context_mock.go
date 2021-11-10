@@ -69,11 +69,12 @@ func (m *MockContext) EXPECT() *MockContextMockRecorder {
 }
 
 // AddTasks mocks base method.
-func (m *MockContext) AddTasks(request *persistence.AddTasksRequest) error {
+func (m *MockContext) AddTasks(request *persistence.AddTasksRequest) (int64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddTasks", request)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AddTasks indicates an expected call of AddTasks.

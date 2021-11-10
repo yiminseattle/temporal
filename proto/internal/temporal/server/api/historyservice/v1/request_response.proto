@@ -508,4 +508,5 @@ message GenerateLastHistoryReplicationTasksRequest {
 }
 
 message GenerateLastHistoryReplicationTasksResponse {
+    int64 task_id = 1;
 }

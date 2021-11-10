@@ -3204,7 +3204,7 @@ func (e *historyEngineImpl) GenerateLastHistoryReplicationTasks(
 		return nil, err
 	}
 
-	err = e.shard.AddTasks(&persistence.AddTasksRequest{
+	taskID, err := e.shard.AddTasks(&persistence.AddTasksRequest{
 		ShardID: e.shard.GetShardID(),
 		// RangeID is set by shard
 		NamespaceID:      string(namespaceID),
@@ -3215,7 +3215,7 @@ func (e *historyEngineImpl) GenerateLastHistoryReplicationTasks(
 	if err != nil {
 		return nil, err
 	}
-	return &historyservice.GenerateLastHistoryReplicationTasksResponse{}, nil
+	return &historyservice.GenerateLastHistoryReplicationTasksResponse{TaskId: taskID}, nil
 }
 
 func (e *historyEngineImpl) loadWorkflowOnce(
