@@ -131,7 +131,7 @@ func (s *metadataSuite) Test_RegisterMetadataChangeCallback() {
 	s.metadata.RegisterMetadataChangeCallback(
 		id,
 		func(oldClusterMetadata map[string]*ClusterInformation, newClusterMetadata map[string]*ClusterInformation) {
-			s.Equal(2, len(newClusterMetadata))
+			s.Equal(3, len(newClusterMetadata))
 		})
 
 	s.metadata.UnRegisterMetadataChangeCallback(id)
@@ -224,5 +224,5 @@ func (s *metadataSuite) Test_ListAllClusterMetadataFromDB_Success() {
 
 	resp, err := s.metadata.listAllClusterMetadataFromDB()
 	s.NoError(err)
-	s.Equal(2, len(resp))
+	s.Equal(3, len(resp))
 }

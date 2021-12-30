@@ -49,6 +49,12 @@ const (
 	FakeClusterForEmptyVersion = "fake-cluster-for-empty-version"
 )
 
+var fakeClusterInfo = ClusterInformation{
+	Enabled:                true,
+	InitialFailoverVersion: 0,
+	RPCAddress:             "",
+}
+
 type (
 	Metadata interface {
 		common.Daemon
@@ -166,6 +172,9 @@ func NewMetadata(
 	for k, v := range clusterInfo {
 		copyClusterInfo[k] = v
 	}
+
+	copyClusterInfo[FakeClusterForEmptyVersion] = fakeClusterInfo
+
 	return &metadataImpl{
 		status:                   common.DaemonStatusInitialized,
 		enableGlobalNamespace:    enableGlobalNamespace,
@@ -450,7 +459,8 @@ func (m *metadataImpl) updateFailoverVersionToClusterName() {
 func updateVersionToClusterName(clusterInfo map[string]ClusterInformation, failoverVersionIncrement int64) map[int64]string {
 	versionToClusterName := make(map[int64]string)
 	for clusterName, info := range clusterInfo {
-		if failoverVersionIncrement <= info.InitialFailoverVersion || info.InitialFailoverVersion <= 0 {
+		if clusterName != FakeClusterForEmptyVersion &&
+			(failoverVersionIncrement <= info.InitialFailoverVersion || info.InitialFailoverVersion <= 0) {
 			panic(fmt.Sprintf(
 				"Version increment %v is smaller than initial version: %v.",
 				failoverVersionIncrement,
@@ -462,7 +472,7 @@ func updateVersionToClusterName(clusterInfo map[string]ClusterInformation, failo
 		}
 		versionToClusterName[info.InitialFailoverVersion] = clusterName
 
-		if info.Enabled && info.RPCAddress == "" {
+		if clusterName != FakeClusterForEmptyVersion && info.Enabled && info.RPCAddress == "" {
 			panic(fmt.Sprintf("Cluster %v: RPCAddress is empty", clusterName))
 		}
 	}
@@ -506,5 +516,7 @@ func (m *metadataImpl) listAllClusterMetadataFromDB() (map[string]*ClusterInform
 			version:                getClusterResp.Version,
 		}
 	}
+	result[FakeClusterForEmptyVersion] = &fakeClusterInfo
+
 	return result, nil
 }

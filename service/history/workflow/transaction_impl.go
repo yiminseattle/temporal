@@ -70,13 +70,10 @@ func (t *TransactionImpl) CreateWorkflowExecution(
 	createMode persistence.CreateWorkflowMode,
 	newWorkflowSnapshot *persistence.WorkflowSnapshot,
 	newWorkflowEventsSeq []*persistence.WorkflowEvents,
+	isGlobalNamespace bool,
 ) (int64, error) {
 
 	engine, err := t.shard.GetEngine()
-	if err != nil {
-		return 0, err
-	}
-	nsEntry, err := t.shard.GetNamespaceRegistry().GetNamespaceByID(namespace.ID(newWorkflowSnapshot.ExecutionInfo.NamespaceId))
 	if err != nil {
 		return 0, err
 	}
@@ -89,7 +86,7 @@ func (t *TransactionImpl) CreateWorkflowExecution(
 		NewWorkflowEvents:   newWorkflowEventsSeq,
 	})
 	if operationPossiblySucceeded(err) {
-		NotifyWorkflowSnapshotTasks(engine, newWorkflowSnapshot, nsEntry.IsGlobalNamespace())
+		NotifyWorkflowSnapshotTasks(engine, newWorkflowSnapshot, isGlobalNamespace)
 	}
 	if err != nil {
 		return 0, err
@@ -110,13 +107,10 @@ func (t *TransactionImpl) ConflictResolveWorkflowExecution(
 	newWorkflowEventsSeq []*persistence.WorkflowEvents,
 	currentWorkflowMutation *persistence.WorkflowMutation,
 	currentWorkflowEventsSeq []*persistence.WorkflowEvents,
+	isGlobalNamespace bool,
 ) (int64, int64, int64, error) {
 
 	engine, err := t.shard.GetEngine()
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	nsEntry, err := t.shard.GetNamespaceRegistry().GetNamespaceByID(namespace.ID(resetWorkflowSnapshot.ExecutionInfo.NamespaceId))
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -133,9 +127,9 @@ func (t *TransactionImpl) ConflictResolveWorkflowExecution(
 		CurrentWorkflowEvents:   currentWorkflowEventsSeq,
 	})
 	if operationPossiblySucceeded(err) {
-		NotifyWorkflowSnapshotTasks(engine, resetWorkflowSnapshot, nsEntry.IsGlobalNamespace())
-		NotifyWorkflowSnapshotTasks(engine, newWorkflowSnapshot, nsEntry.IsGlobalNamespace())
-		NotifyWorkflowMutationTasks(engine, currentWorkflowMutation, nsEntry.IsGlobalNamespace())
+		NotifyWorkflowSnapshotTasks(engine, resetWorkflowSnapshot, isGlobalNamespace)
+		NotifyWorkflowSnapshotTasks(engine, newWorkflowSnapshot, isGlobalNamespace)
+		NotifyWorkflowMutationTasks(engine, currentWorkflowMutation, isGlobalNamespace)
 	}
 	if err != nil {
 		return 0, 0, 0, err
@@ -168,17 +162,13 @@ func (t *TransactionImpl) UpdateWorkflowExecution(
 	currentWorkflowEventsSeq []*persistence.WorkflowEvents,
 	newWorkflowSnapshot *persistence.WorkflowSnapshot,
 	newWorkflowEventsSeq []*persistence.WorkflowEvents,
+	isGlobalNamespace bool,
 ) (int64, int64, error) {
 
 	engine, err := t.shard.GetEngine()
 	if err != nil {
 		return 0, 0, err
 	}
-	nsEntry, err := t.shard.GetNamespaceRegistry().GetNamespaceByID(namespace.ID(currentWorkflowMutation.ExecutionInfo.NamespaceId))
-	if err != nil {
-		return 0, 0, err
-	}
-
 	resp, err := updateWorkflowExecutionWithRetry(t.shard, &persistence.UpdateWorkflowExecutionRequest{
 		ShardID: t.shard.GetShardID(),
 		// RangeID , this is set by shard context
@@ -189,8 +179,8 @@ func (t *TransactionImpl) UpdateWorkflowExecution(
 		NewWorkflowEvents:      newWorkflowEventsSeq,
 	})
 	if operationPossiblySucceeded(err) {
-		NotifyWorkflowMutationTasks(engine, currentWorkflowMutation, nsEntry.IsGlobalNamespace())
-		NotifyWorkflowSnapshotTasks(engine, newWorkflowSnapshot, nsEntry.IsGlobalNamespace())
+		NotifyWorkflowMutationTasks(engine, currentWorkflowMutation, isGlobalNamespace)
+		NotifyWorkflowSnapshotTasks(engine, newWorkflowSnapshot, isGlobalNamespace)
 	}
 	if err != nil {
 		return 0, 0, err

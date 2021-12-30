@@ -365,6 +365,7 @@ func (r *workflowResetterImpl) persistToDB(
 			currentWorkflowEventsSeq,
 			resetWorkflowSnapshot,
 			resetWorkflowEventsSeq,
+			currentWorkflow.getMutableState().GetNamespaceEntry().IsGlobalNamespace(),
 		); err != nil {
 			return err
 		} else {

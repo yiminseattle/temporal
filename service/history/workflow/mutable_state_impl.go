@@ -4266,7 +4266,7 @@ func (e *MutableStateImpl) closeTransactionWithPolicyCheck(
 	activeCluster := e.clusterMetadata.ClusterNameForFailoverVersion(e.namespaceEntry.IsGlobalNamespace(), e.GetCurrentVersion())
 	currentCluster := e.clusterMetadata.GetCurrentClusterName()
 
-	if activeCluster != currentCluster {
+	if activeCluster != currentCluster && activeCluster != cluster.FakeClusterForEmptyVersion {
 		namespaceID := e.GetExecutionInfo().NamespaceId
 		return serviceerror.NewNamespaceNotActive(namespaceID, currentCluster, activeCluster)
 	}

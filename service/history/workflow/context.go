@@ -520,6 +520,7 @@ func (c *ContextImpl) ConflictResolveWorkflowExecution(
 		newWorkflowEventsSeq,
 		currentWorkflow,
 		currentWorkflowEventsSeq,
+		resetMutableState.GetNamespaceEntry().IsGlobalNamespace(),
 	); err != nil {
 		return err
 	} else {
@@ -685,6 +686,7 @@ func (c *ContextImpl) UpdateWorkflowExecutionWithNew(
 		currentWorkflowEventsSeq,
 		newWorkflow,
 		newWorkflowEventsSeq,
+		c.MutableState.GetNamespaceEntry().IsGlobalNamespace(),
 	); err != nil {
 		return err
 	} else {
